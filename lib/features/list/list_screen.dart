@@ -8,11 +8,12 @@ import '../../models/tier_style.dart';
 import '../place_detail_sheet.dart';
 import '../recommendations.dart';
 import '../share_text.dart';
+import 'place_filter.dart';
 
-final _regionFilterProvider = StateProvider<String?>((ref) => null);
-final _tierFilterProvider = StateProvider<Tier?>((ref) => null);
-final _tagFilterProvider = StateProvider<String?>((ref) => null);
-final _locationFilterProvider = StateProvider<String?>((ref) => null);
+final _regionFilterProvider = StateProvider<Set<String>>((ref) => {});
+final _tierFilterProvider = StateProvider<Set<Tier>>((ref) => {});
+final _tagFilterProvider = StateProvider<Set<String>>((ref) => {});
+final _locationFilterProvider = StateProvider<Set<String>>((ref) => {});
 final _unratedOnlyProvider = StateProvider<bool>((ref) => false);
 final _unpinnedOnlyProvider = StateProvider<bool>((ref) => false);
 final _searchQueryProvider = StateProvider<String>((ref) => '');
@@ -37,29 +38,23 @@ class ListScreen extends ConsumerWidget {
           final unratedOnly = ref.watch(_unratedOnlyProvider);
           final unpinnedOnly = ref.watch(_unpinnedOnlyProvider);
           final query = ref.watch(_searchQueryProvider).trim().toLowerCase();
-          final activeFilterCount = (regionFilter != null ? 1 : 0) +
-              (tierFilter != null ? 1 : 0) +
-              (tagFilter != null ? 1 : 0) +
-              (locationFilter != null ? 1 : 0) +
+          final activeFilterCount = regionFilter.length +
+              tierFilter.length +
+              tagFilter.length +
+              locationFilter.length +
               (unratedOnly ? 1 : 0) +
               (unpinnedOnly ? 1 : 0);
 
-          final filtered = places.where((p) {
-            if (regionFilter != null && p.region != regionFilter) return false;
-            if (tierFilter != null && p.tier != tierFilter) return false;
-            if (tagFilter != null && !p.tags.contains(tagFilter)) return false;
-            if (locationFilter != null && p.location != locationFilter) return false;
-            if (unratedOnly && p.score != null) return false;
-            if (unpinnedOnly && p.address != null && p.address!.trim().isNotEmpty) return false;
-            if (query.isNotEmpty &&
-                !p.name.toLowerCase().contains(query) &&
-                !p.location.toLowerCase().contains(query) &&
-                !p.region.toLowerCase().contains(query) &&
-                !p.tags.any((t) => t.toLowerCase().contains(query))) {
-              return false;
-            }
-            return true;
-          }).toList();
+          final filtered = filterPlaces(
+            places,
+            regions: regionFilter,
+            tiers: tierFilter,
+            tags: tagFilter,
+            locations: locationFilter,
+            unratedOnly: unratedOnly,
+            unpinnedOnly: unpinnedOnly,
+            query: query,
+          );
 
           final grouped = <String, List<Place>>{};
           for (final p in filtered) {
@@ -107,8 +102,8 @@ class ListScreen extends ConsumerWidget {
               // Only surface recommendations on the unfiltered, unsearched
               // view - they're a discovery aid, not something to fight for
               // space with an active filter/search the user already chose.
-              if (regionFilter == null &&
-                  tierFilter == null &&
+              if (regionFilter.isEmpty &&
+                  tierFilter.isEmpty &&
                   !unratedOnly &&
                   !unpinnedOnly &&
                   query.isEmpty)
@@ -138,17 +133,29 @@ class ListScreen extends ConsumerWidget {
           final unratedOnly = ref.watch(_unratedOnlyProvider);
           final unpinnedOnly = ref.watch(_unpinnedOnlyProvider);
 
-          final regionTags = regionFilter == null
-              ? const <String>[]
-              : (places.where((p) => p.region == regionFilter).expand((p) => p.tags).toSet().toList()..sort());
-          final regionLocations = regionFilter == null
+          final regionTags = regionFilter.isEmpty
               ? const <String>[]
               : (places
-                  .where((p) => p.region == regionFilter && p.location.trim().isNotEmpty)
+                  .where((p) => regionFilter.contains(p.region))
+                  .expand((p) => p.tags)
+                  .toSet()
+                  .toList()
+                ..sort());
+          final regionLocations = regionFilter.isEmpty
+              ? const <String>[]
+              : (places
+                  .where((p) => regionFilter.contains(p.region) && p.location.trim().isNotEmpty)
                   .map((p) => p.location)
                   .toSet()
                   .toList()
                 ..sort());
+          final regionLabel = regionFilter.length == 1 ? regionFilter.first : '${regionFilter.length} regions';
+
+          Set<T> toggled<T>(Set<T> current, T value) {
+            final next = Set<T>.from(current);
+            if (!next.remove(value)) next.add(value);
+            return next;
+          }
 
           return SafeArea(
             child: ConstrainedBox(
@@ -166,10 +173,10 @@ class ListScreen extends ConsumerWidget {
                           Text('Filters', style: Theme.of(context).textTheme.titleMedium),
                           TextButton(
                             onPressed: () {
-                              ref.read(_regionFilterProvider.notifier).state = null;
-                              ref.read(_tierFilterProvider.notifier).state = null;
-                              ref.read(_tagFilterProvider.notifier).state = null;
-                              ref.read(_locationFilterProvider.notifier).state = null;
+                              ref.read(_regionFilterProvider.notifier).state = {};
+                              ref.read(_tierFilterProvider.notifier).state = {};
+                              ref.read(_tagFilterProvider.notifier).state = {};
+                              ref.read(_locationFilterProvider.notifier).state = {};
                               ref.read(_unratedOnlyProvider.notifier).state = false;
                               ref.read(_unpinnedOnlyProvider.notifier).state = false;
                             },
@@ -184,25 +191,24 @@ class ListScreen extends ConsumerWidget {
                         spacing: 8,
                         children: [
                           for (final r in regions)
-                            ChoiceChip(
+                            FilterChip(
                               label: Text(r),
-                              selected: regionFilter == r,
+                              selected: regionFilter.contains(r),
                               onSelected: (_) {
-                                final newRegion = regionFilter == r ? null : r;
-                                ref.read(_regionFilterProvider.notifier).state = newRegion;
-                                // Tags and locations are scoped to a region
-                                // - deselecting or switching regions can
-                                // leave either pointing at something that
-                                // no longer applies, so both clear with it.
-                                ref.read(_tagFilterProvider.notifier).state = null;
-                                ref.read(_locationFilterProvider.notifier).state = null;
+                                ref.read(_regionFilterProvider.notifier).state = toggled(regionFilter, r);
+                                // Tags and locations are scoped to the
+                                // selected region(s) - changing the set can
+                                // leave either pointing at something that no
+                                // longer applies, so both clear with it.
+                                ref.read(_tagFilterProvider.notifier).state = {};
+                                ref.read(_locationFilterProvider.notifier).state = {};
                               },
                             ),
                         ],
                       ),
-                      if (regionFilter != null) ...[
+                      if (regionFilter.isNotEmpty) ...[
                         const SizedBox(height: 16),
-                        Text('Tags in $regionFilter', style: Theme.of(context).textTheme.bodySmall),
+                        Text('Tags in $regionLabel', style: Theme.of(context).textTheme.bodySmall),
                         const SizedBox(height: 8),
                         if (regionTags.isEmpty)
                           Text(
@@ -214,27 +220,27 @@ class ListScreen extends ConsumerWidget {
                             spacing: 8,
                             children: [
                               for (final tag in regionTags)
-                                ChoiceChip(
+                                FilterChip(
                                   label: Text(tag),
-                                  selected: tagFilter == tag,
+                                  selected: tagFilter.contains(tag),
                                   onSelected: (_) =>
-                                      ref.read(_tagFilterProvider.notifier).state = tagFilter == tag ? null : tag,
+                                      ref.read(_tagFilterProvider.notifier).state = toggled(tagFilter, tag),
                                 ),
                             ],
                           ),
                         if (regionLocations.isNotEmpty) ...[
                           const SizedBox(height: 16),
-                          Text('Neighborhoods in $regionFilter', style: Theme.of(context).textTheme.bodySmall),
+                          Text('Neighborhoods in $regionLabel', style: Theme.of(context).textTheme.bodySmall),
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
                             children: [
                               for (final loc in regionLocations)
-                                ChoiceChip(
+                                FilterChip(
                                   label: Text(loc),
-                                  selected: locationFilter == loc,
+                                  selected: locationFilter.contains(loc),
                                   onSelected: (_) => ref.read(_locationFilterProvider.notifier).state =
-                                      locationFilter == loc ? null : loc,
+                                      toggled(locationFilter, loc),
                                 ),
                             ],
                           ),
@@ -247,12 +253,11 @@ class ListScreen extends ConsumerWidget {
                         spacing: 8,
                         children: [
                           for (final t in Tier.values)
-                            ChoiceChip(
+                            FilterChip(
                               label: Text(tierLabel(t)),
-                              selected: tierFilter == t,
+                              selected: tierFilter.contains(t),
                               selectedColor: tierColor(t).withValues(alpha: 0.25),
-                              onSelected: (_) =>
-                                  ref.read(_tierFilterProvider.notifier).state = tierFilter == t ? null : t,
+                              onSelected: (_) => ref.read(_tierFilterProvider.notifier).state = toggled(tierFilter, t),
                             ),
                         ],
                       ),

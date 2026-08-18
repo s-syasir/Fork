@@ -310,6 +310,19 @@ class LocalDb {
     return rows.map((r) => (region: r['region'] as String, location: r['location'] as String)).toList();
   }
 
+  /// Every distinct tag seen across all places - for the Add/Edit Tags
+  /// field's autocomplete.
+  Future<List<String>> getAllTags() async {
+    final db = await _database;
+    final rows = await db.rawQuery("SELECT tags FROM places WHERE tags != '[]'");
+    final tags = <String>{};
+    for (final row in rows) {
+      tags.addAll((jsonDecode(row['tags'] as String) as List<dynamic>).cast<String>());
+    }
+    final sorted = tags.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return sorted;
+  }
+
   // --- Visits ---
 
   Future<List<Visit>> getVisits(String placeId) async {

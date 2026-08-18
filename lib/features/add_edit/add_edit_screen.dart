@@ -63,6 +63,12 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
   List<Photo> _photos = [];
   List<String> _allRegions = [];
   List<({String region, String location})> _allRegionLocations = [];
+  List<String> _allTags = [];
+  // Text preceding the tag fragment currently being typed (everything up
+  // through the last confirmed ", ") - set by _tagOptions each rebuild so
+  // displayStringForOption/onSelected can splice the picked tag back in
+  // without clobbering tags already typed before it.
+  String _tagsPrefix = '';
   final List<_VisitDraft> _visits = [];
   bool _saving = false;
   late bool _loadingVisits;
@@ -96,6 +102,23 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
     if (mounted) setState(() => _allRegions = regions);
     final pairs = await ref.read(placeRepositoryProvider.notifier).getAllRegionLocationPairs();
     if (mounted) setState(() => _allRegionLocations = pairs);
+    final tags = await ref.read(placeRepositoryProvider.notifier).getAllTags();
+    if (mounted) setState(() => _allTags = tags);
+  }
+
+  /// Suggestions for whatever tag fragment is currently being typed (the
+  /// text after the last comma), also updates [_tagsPrefix] as a side
+  /// effect so the picked suggestion can be spliced back into the rest of
+  /// the field.
+  List<String> _tagOptions(TextEditingValue value) {
+    final text = value.text;
+    final lastComma = text.lastIndexOf(',');
+    final fragment = (lastComma == -1 ? text : text.substring(lastComma + 1)).trim().toLowerCase();
+    _tagsPrefix = lastComma == -1 ? '' : '${text.substring(0, lastComma + 1)} ';
+    final alreadyTyped = text.split(',').map((t) => t.trim().toLowerCase()).toSet();
+    final candidates = _allTags.where((t) => !alreadyTyped.contains(t.toLowerCase()));
+    if (fragment.isEmpty) return candidates.toList();
+    return candidates.where((t) => t.toLowerCase().contains(fragment)).toList();
   }
 
   Future<void> _loadVisits(String placeId) async {
@@ -293,9 +316,22 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _tags,
-              decoration: const InputDecoration(labelText: 'Tags (comma separated)'),
+            Autocomplete<String>(
+              initialValue: TextEditingValue(text: _tags.text),
+              optionsBuilder: _tagOptions,
+              displayStringForOption: (option) => '$_tagsPrefix$option, ',
+              onSelected: (selection) => _tags.text = '$_tagsPrefix$selection, ',
+              fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+                return TextFormField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  onChanged: (value) => _tags.text = value,
+                  decoration: const InputDecoration(
+                    labelText: 'Tags (comma separated)',
+                    helperText: 'Picking a suggestion adds the comma for you',
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 20),
             Row(

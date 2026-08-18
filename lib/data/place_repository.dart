@@ -355,6 +355,8 @@ class PlaceRepository extends StateNotifier<AsyncValue<List<Place>>> {
 
   Future<List<({String region, String location})>> getAllRegionLocationPairs() =>
       LocalDb.instance.getAllRegionLocationPairs();
+
+  Future<List<String>> getAllTags() => LocalDb.instance.getAllTags();
 }
 
 final placeRepositoryProvider = StateNotifierProvider<PlaceRepository, AsyncValue<List<Place>>>((ref) {
