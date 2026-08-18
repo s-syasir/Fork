@@ -41,3 +41,21 @@ flutter run
 flutter build apk --release
 adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
+
+## Reinstalling / restoring from backup
+
+Do this in order, or a fresh pull-sync will seed the local database as
+bare, unrated placeholders and then overwrite your real backup with that
+empty state on the next save:
+
+1. Install the app, open **Settings**, but **don't** touch the Backend
+   URL/Bearer token fields yet.
+2. Enter the **Data sync folder** path and tap **Set folder** - this just
+   points the app at your Syncthing-synced folder, no network call yet.
+3. Tap **"Restore database from a backup folder..."** and pick that same
+   folder. This loads your real data (scores, visits, photos, tags,
+   addresses). It's safe to do before the backend is configured - the
+   sync it triggers no-ops when there's nothing to reach yet.
+4. *Now* enter the Backend URL + token and tap **Save**. This is the step
+   that pull-syncs from the Joplin note - since your real data's already
+   loaded, it reconciles against it instead of starting from empty.
