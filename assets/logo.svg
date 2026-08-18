@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Deep orange rounded square background -->
+  <rect width="512" height="512" rx="96" fill="#E64A19"/>
+
+  <!-- Fork: four tines, a crossbar joining them, and a handle -->
+  <rect x="184" y="70"  width="24" height="165" rx="12" fill="white"/>
+  <rect x="224" y="70"  width="24" height="165" rx="12" fill="white"/>
+  <rect x="264" y="70"  width="24" height="165" rx="12" fill="white"/>
+  <rect x="304" y="70"  width="24" height="165" rx="12" fill="white"/>
+  <rect x="170" y="215" width="172" height="60" rx="24" fill="white"/>
+  <rect x="234" y="245" width="44" height="200" rx="22" fill="white"/>
+</svg>
