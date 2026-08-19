@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'data/app_settings.dart';
 import 'data/place_repository.dart';
 import 'features/add_edit/add_edit_screen.dart';
+import 'features/last_synced_label.dart';
 import 'features/list/list_screen.dart';
 import 'features/map/map_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -55,7 +56,11 @@ class HomeShell extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fork'),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [Text('Fork'), LastSyncedLabel()],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),

@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+import '../../data/app_lock.dart';
 import '../../data/app_settings.dart';
 import '../../data/config_backup_service.dart';
 import '../../data/local_db.dart';
@@ -223,6 +224,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: const Text('Save'),
           ),
           const SizedBox(height: 32),
+          const Divider(),
+          const SizedBox(height: 8),
+          const Text('Security', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Consumer(
+            builder: (context, ref, _) {
+              final lockEnabled = ref.watch(appLockEnabledProvider);
+              return SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Require unlock to open app'),
+                subtitle: const Text('Biometric or device PIN, checked on launch and on returning to the app'),
+                value: lockEnabled,
+                onChanged: (v) => ref.read(appLockEnabledProvider.notifier).setEnabled(v),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 8),
           const Text('Local database', style: TextStyle(fontWeight: FontWeight.bold)),

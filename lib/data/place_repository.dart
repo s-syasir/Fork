@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/place.dart';
 import 'app_settings.dart';
 import 'fork_api_client.dart';
+import 'last_synced.dart';
 import 'local_db.dart';
 
 /// Fields the UI collects to create/update a place. `id`/`noteLineKey` are
@@ -176,6 +177,7 @@ class PlaceRepository extends StateNotifier<AsyncValue<List<Place>>> {
       ref.read(syncErrorProvider.notifier).state =
           stillPending.isEmpty ? null : '${stillPending.length} place(s) not yet synced to the note';
       await _reload();
+      ref.read(lastSyncedProvider.notifier).state = DateTime.now();
     } catch (e) {
       // Pull failures are non-fatal - local data (already loaded) stays
       // shown; just nothing new comes in until the next successful sync.
